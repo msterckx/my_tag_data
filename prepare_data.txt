@@ -4,4 +4,6 @@ task 1: data prep
 - calculate correlations between features and make visual representation save it to 'images' folder
 - calculate distributions of every features and make visual representation save it to 'images' folder
 
+task 2: train model
+1)  use catboost to train the model with 'target' being the target.
 end file: prepare_data.py
