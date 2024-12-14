@@ -6,4 +6,6 @@ task 1: data prep
 
 task 2: train model
 1)  use catboost to train the model with 'target' being the target.
+- output trained model to file in /kaggle/working/ 
+- use 'accuracy' to evalaute the model
 end file: prepare_data.py

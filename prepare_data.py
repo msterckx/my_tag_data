@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 from catboost import CatBoostClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score
 
 def create_correlation_plot(df):
     """Create and save correlation heatmap for the given dataframe."""
@@ -44,8 +44,8 @@ def create_distribution_plots(df):
             plt.savefig(output_path)
             plt.close()
 
-def train_model(df):
-    """Train a CatBoost model on the data."""
+def train_and_evaluate_model(df):
+    """Train a CatBoost model and evaluate its accuracy."""
     # Prepare features and target
     X = df.drop('target', axis=1)
     y = df['target']
@@ -64,18 +64,23 @@ def train_model(df):
         random_seed=42
     )
     
-    model.fit(X_train, y_train, eval_set=(X_test, y_test))
+    model.fit(X_train, y_train, eval_set=(X_test, y_test), verbose=False)
     
-    # Make predictions
+    # Make predictions and calculate accuracy
     y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
     
-    # Print model performance
-    print("\nModel Performance:")
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("\nClassification Report:")
-    print(classification_report(y_test, y_pred))
+    print(f"\nModel Accuracy: {accuracy:.4f}")
     
-    return model
+    # Ensure directory exists
+    os.makedirs('/kaggle/working', exist_ok=True)
+    
+    # Save the model
+    model_path = '/kaggle/working/catboost_model.cbm'
+    model.save_model(model_path)
+    print(f"\nModel saved to: {model_path}")
+    
+    return model, accuracy
 
 def main():
     # Read dataset
@@ -87,8 +92,8 @@ def main():
     # Create distribution plots
     create_distribution_plots(df)
     
-    # Train model
-    model = train_model(df)
+    # Train and evaluate model
+    model, accuracy = train_and_evaluate_model(df)
 
 if __name__ == "__main__":
     main()
