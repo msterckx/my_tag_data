@@ -84,7 +84,7 @@ def train_and_evaluate_model(df):
 
 def main():
     # Read dataset
-    df = pd.read_csv('data/easy_dataset.csv')
+    df = pd.read_csv('data/hard_dataset.csv')
     
     # Create correlation plot
     create_correlation_plot(df)
