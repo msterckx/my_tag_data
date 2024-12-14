@@ -2,28 +2,29 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
+import argparse
 from catboost import CatBoostClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-def create_correlation_plot(df):
+def create_correlation_plot(df, dataset_name):
     """Create and save correlation heatmap for the given dataframe."""
     plt.figure(figsize=(10, 8))
     correlation_matrix = df.corr()
     sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0)
-    plt.title('Feature Correlations - Easy Dataset')
+    plt.title(f'Feature Correlations - {dataset_name}')
     
     # Ensure images directory exists
     if not os.path.exists('images'):
         os.makedirs('images')
     
     # Save plot
-    output_path = os.path.join('images', 'correlation_easy_dataset.png')
+    output_path = os.path.join('images', f'correlation_{dataset_name}.png')
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
 
-def create_distribution_plots(df):
+def create_distribution_plots(df, dataset_name):
     """Create and save distribution plots for each feature."""
     # Ensure images directory exists
     if not os.path.exists('images'):
@@ -34,12 +35,12 @@ def create_distribution_plots(df):
         if column != 'target':  # Skip target column
             plt.figure(figsize=(8, 6))
             sns.histplot(data=df, x=column, kde=True)
-            plt.title(f'Distribution of {column}')
+            plt.title(f'Distribution of {column} - {dataset_name}')
             plt.xlabel(column)
             plt.ylabel('Count')
             
             # Save plot
-            output_path = os.path.join('images', f'distribution_{column}.png')
+            output_path = os.path.join('images', f'distribution_{column}_{dataset_name}.png')
             plt.tight_layout()
             plt.savefig(output_path)
             plt.close()
@@ -83,14 +84,27 @@ def train_and_evaluate_model(df):
     return model, accuracy
 
 def main():
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Process dataset and train model.')
+    parser.add_argument('--dataset', type=str, choices=['easy', 'hard'],
+                      default='easy', help='Choose dataset: easy or hard')
+    
+    args = parser.parse_args()
+    
+    # Determine dataset path and name
+    dataset_name = f"{args.dataset}_dataset"
+    dataset_path = f"data/{dataset_name}.csv"
+    
+    print(f"\nUsing dataset: {dataset_path}")
+    
     # Read dataset
-    df = pd.read_csv('data/hard_dataset.csv')
+    df = pd.read_csv(dataset_path)
     
     # Create correlation plot
-    create_correlation_plot(df)
+    create_correlation_plot(df, dataset_name)
     
     # Create distribution plots
-    create_distribution_plots(df)
+    create_distribution_plots(df, dataset_name)
     
     # Train and evaluate model
     model, accuracy = train_and_evaluate_model(df)
