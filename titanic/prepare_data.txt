@@ -16,6 +16,8 @@ task 2: data cleaning:
 task 3: train model
 1)  use catboost to train the model with Transported being the target.
 remarks:
-- output trained model to file in /kaggle/working/ 
+- split the training data and use a fraction of the data to test the accuracy of the model
+- output trained model to file in /kaggle/working/  
+
 
 end file: prepare_data.py
