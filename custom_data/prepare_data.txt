@@ -1,0 +1,12 @@
+start file: prepare_data.py
+task 1: data prep
+1) read csv with structured data from data into pandas dataframe and perform the following:
+- allow to use either data\easy_dataset.csv or data\hard_dataset.csv. No command line arguments (just vaiable to be filled in).
+- calculate correlations between features and make visual representation save it to 'images' folder
+- calculate distributions of every features and make visual representation save it to 'images' folder
+
+task 2: train model
+1)  use catboost to train the model with 'target' being the target.
+- output trained model to file in /kaggle/working/ 
+- use 'accuracy' to evalaute the model
+end file: prepare_data.py
