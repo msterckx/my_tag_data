@@ -19,8 +19,15 @@ remarks:
 - split the training data and use a fraction of the data to test the accuracy of the model
 - output trained model to file in /kaggle/working/  
 
-
 task 4: submission
 1) use the trained model on the test data and output the data to data\yyyymmdd-hhss_submission.csv. (interpret date/time)
 - get the structure for the submission file from data\sample_submission.csv
+
+task 5: evaluate model
+1) use the trained model on the test data and evaluate were the weaknesses are of the model.
+- Segment the data based on important features
+- Identify which subgroups the model struggles with
+- Visualize error patterns
+- Recommend new features or transformations
+- And suggest targeted improvements to enhance the model’s performance
 end file: prepare_data.py
