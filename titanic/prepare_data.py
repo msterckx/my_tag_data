@@ -161,6 +161,32 @@ def train_model(train_df: pd.DataFrame) -> Tuple[CatBoostClassifier, float]:
     
     return model, val_accuracy
 
+def create_submission(model: CatBoostClassifier, test_df: pd.DataFrame, submission_path: str):
+    """
+    Create submission file with model predictions
+    Args:
+        model: Trained CatBoost model
+        test_df: Test dataframe
+        submission_path: Path to save submission file
+    """
+    # Prepare test features
+    X_test = test_df.drop(['PassengerId'], axis=1, errors='ignore')
+    
+    # Make predictions
+    print("\nMaking predictions on test data...")
+    predictions = model.predict(X_test)
+    
+    # Create submission dataframe
+    submission_df = pd.DataFrame({
+        'PassengerId': test_df['PassengerId'],
+        'Transported': predictions
+    })
+    
+    # Save submission file
+    print(f"\nSaving submission to {submission_path}")
+    submission_df.to_csv(submission_path, index=False)
+    print("Submission file created successfully")
+
 def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame, CatBoostClassifier, float]:
     """
     Main function to prepare the data and train model
@@ -204,6 +230,10 @@ if __name__ == "__main__":
     model_path = '/kaggle/working/catboost_model.cbm'
     print(f"\nSaving model to {model_path}")
     model.save_model(model_path)
+    
+    # Create submission file
+    submission_path = '/kaggle/working/submission.csv'
+    create_submission(model, test_processed, submission_path)
     
     # Print basic information about the processed datasets
     print("\nProcessed training data info:")
