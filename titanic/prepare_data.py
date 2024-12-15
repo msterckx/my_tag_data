@@ -1,6 +1,8 @@
 import pandas as pd
-import numpy as np
+import numpy as pd
 from typing import Tuple
+from catboost import CatBoostClassifier
+import os
 
 def read_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -96,11 +98,63 @@ def handle_outliers(df: pd.DataFrame, numeric_columns: list = None) -> pd.DataFr
     
     return df
 
-def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
+def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Main function to prepare the data
+    Prepare features for model training
+    Args:
+        df: Input dataframe
     Returns:
-        Tuple containing processed training and test dataframes
+        Dataframe with prepared features
+    """
+    df = df.copy()
+    
+    # Identify categorical columns
+    categorical_columns = df.select_dtypes(include=['object']).columns
+    
+    # Convert categorical columns to category type for CatBoost
+    for col in categorical_columns:
+        df[col] = df[col].astype('category')
+    
+    return df
+
+def train_model(train_df: pd.DataFrame) -> CatBoostClassifier:
+    """
+    Train CatBoost model
+    Args:
+        train_df: Training dataframe
+    Returns:
+        Trained CatBoost model
+    """
+    # Prepare features
+    X = train_df.drop(['Transported', 'PassengerId'], axis=1, errors='ignore')
+    y = train_df['Transported']
+    
+    # Identify categorical features
+    cat_features = X.select_dtypes(include=['category']).columns.tolist()
+    
+    # Initialize and train model
+    model = CatBoostClassifier(
+        iterations=1000,
+        learning_rate=0.1,
+        depth=6,
+        loss_function='Logloss',
+        verbose=100
+    )
+    
+    print("\nTraining CatBoost model...")
+    model.fit(
+        X, y,
+        cat_features=cat_features,
+        plot=False
+    )
+    
+    return model
+
+def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame, CatBoostClassifier]:
+    """
+    Main function to prepare the data and train model
+    Returns:
+        Tuple containing processed training data, test data, and trained model
     """
     # Read the data
     print("Reading data...")
@@ -118,11 +172,27 @@ def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     print("\nHandling outliers in test data...")
     test_df = handle_outliers(test_df)
     
-    return train_df, test_df
+    # Prepare features
+    print("\nPreparing features...")
+    train_df = prepare_features(train_df)
+    test_df = prepare_features(test_df)
+    
+    # Train model
+    model = train_model(train_df)
+    
+    return train_df, test_df, model
 
 if __name__ == "__main__":
-    # Execute the data preparation
-    train_processed, test_processed = prepare_data()
+    # Create output directory if it doesn't exist
+    os.makedirs('/kaggle/working', exist_ok=True)
+    
+    # Execute the data preparation and model training
+    train_processed, test_processed, model = prepare_data()
+    
+    # Save the trained model
+    model_path = '/kaggle/working/catboost_model.cbm'
+    print(f"\nSaving model to {model_path}")
+    model.save_model(model_path)
     
     # Print basic information about the processed datasets
     print("\nProcessed training data info:")

@@ -13,5 +13,9 @@ task 2: data cleaning:
 2)  Outlier Detection and Treatment
 - If numerical columns contain extreme outliers, consider capping or transforming values to reduce their influence.
 
+task 3: train model
+1)  use catboost to train the model with Transported being the target.
+remarks:
+- output trained model to file in /kaggle/working/ 
 
 end file: prepare_data.py
