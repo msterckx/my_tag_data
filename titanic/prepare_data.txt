@@ -1,0 +1,19 @@
+start file: prepare_data.py
+task 1: data prep
+1) read csv with structured data from data into pandas dataframe and perform the following:
+- file with training data is data\train.csv and test data is data\test.csv
+
+task 2: data cleaning:
+1) Handle Missing Values: 
+- Identify columns with missing data and impute values where possible. 
+- For numerical columns, consider using the median or mean. 
+- For categorical columns, consider using the mode or a designated placeholder. 
+- If a column has too many missing values, you may opt to drop it.
+2) Drop Irrelevant or Redundant Columns  
+- Remove columns that are not useful for analysis or have no variation.
+
+3)  Outlier Detection and Treatment
+- If numerical columns contain extreme outliers, consider capping or transforming values to reduce their influence.
+
+
+end file: prepare_data.py
