@@ -9,10 +9,8 @@ task 2: data cleaning:
 - For numerical columns, consider using the median or mean. 
 - For categorical columns, consider using the mode or a designated placeholder. 
 - If a column has too many missing values, you may opt to drop it.
-2) Drop Irrelevant or Redundant Columns  
-- Remove columns that are not useful for analysis or have no variation.
 
-3)  Outlier Detection and Treatment
+2)  Outlier Detection and Treatment
 - If numerical columns contain extreme outliers, consider capping or transforming values to reduce their influence.
 
 
