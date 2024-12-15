@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 from typing import Tuple
 from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 import os
 
 def read_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -117,17 +119,20 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def train_model(train_df: pd.DataFrame) -> CatBoostClassifier:
+def train_model(train_df: pd.DataFrame) -> Tuple[CatBoostClassifier, float]:
     """
-    Train CatBoost model
+    Train CatBoost model and evaluate on validation set
     Args:
         train_df: Training dataframe
     Returns:
-        Trained CatBoost model
+        Tuple containing trained CatBoost model and validation accuracy
     """
     # Prepare features
     X = train_df.drop(['Transported', 'PassengerId'], axis=1, errors='ignore')
     y = train_df['Transported']
+    
+    # Split data into training and validation sets
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
     
     # Identify categorical features
     cat_features = X.select_dtypes(include=['category']).columns.tolist()
@@ -143,18 +148,24 @@ def train_model(train_df: pd.DataFrame) -> CatBoostClassifier:
     
     print("\nTraining CatBoost model...")
     model.fit(
-        X, y,
+        X_train, y_train,
         cat_features=cat_features,
+        eval_set=(X_val, y_val),
         plot=False
     )
     
-    return model
+    # Evaluate model on validation set
+    val_predictions = model.predict(X_val)
+    val_accuracy = accuracy_score(y_val, val_predictions)
+    print(f"\nValidation accuracy: {val_accuracy:.4f}")
+    
+    return model, val_accuracy
 
-def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame, CatBoostClassifier]:
+def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame, CatBoostClassifier, float]:
     """
     Main function to prepare the data and train model
     Returns:
-        Tuple containing processed training data, test data, and trained model
+        Tuple containing processed training data, test data, trained model, and validation accuracy
     """
     # Read the data
     print("Reading data...")
@@ -177,17 +188,17 @@ def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame, CatBoostClassifier]:
     train_df = prepare_features(train_df)
     test_df = prepare_features(test_df)
     
-    # Train model
-    model = train_model(train_df)
+    # Train model and get validation accuracy
+    model, val_accuracy = train_model(train_df)
     
-    return train_df, test_df, model
+    return train_df, test_df, model, val_accuracy
 
 if __name__ == "__main__":
     # Create output directory if it doesn't exist
     os.makedirs('/kaggle/working', exist_ok=True)
     
     # Execute the data preparation and model training
-    train_processed, test_processed, model = prepare_data()
+    train_processed, test_processed, model, val_accuracy = prepare_data()
     
     # Save the trained model
     model_path = '/kaggle/working/catboost_model.cbm'
@@ -199,3 +210,4 @@ if __name__ == "__main__":
     print(train_processed.info())
     print("\nProcessed test data info:")
     print(test_processed.info())
+    print(f"\nFinal model validation accuracy: {val_accuracy:.4f}")

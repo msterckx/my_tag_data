@@ -20,4 +20,7 @@ remarks:
 - output trained model to file in /kaggle/working/  
 
 
+task 4: submission
+1) use the trained model on the test data and output the data to \kaggle\working\submission.csv
+- get the structure for the submission file from data\sample_submission.csv
 end file: prepare_data.py
