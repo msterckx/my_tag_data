@@ -5,6 +5,7 @@ from catboost import CatBoostClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 import os
+from datetime import datetime
 
 def read_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -161,13 +162,12 @@ def train_model(train_df: pd.DataFrame) -> Tuple[CatBoostClassifier, float]:
     
     return model, val_accuracy
 
-def create_submission(model: CatBoostClassifier, test_df: pd.DataFrame, submission_path: str):
+def create_submission(model: CatBoostClassifier, test_df: pd.DataFrame):
     """
     Create submission file with model predictions
     Args:
         model: Trained CatBoost model
         test_df: Test dataframe
-        submission_path: Path to save submission file
     """
     # Prepare test features
     X_test = test_df.drop(['PassengerId'], axis=1, errors='ignore')
@@ -181,6 +181,10 @@ def create_submission(model: CatBoostClassifier, test_df: pd.DataFrame, submissi
         'PassengerId': test_df['PassengerId'],
         'Transported': predictions
     })
+    
+    # Generate timestamp for filename
+    timestamp = datetime.now().strftime('%Y%m%d-%H%M')
+    submission_path = f'data/{timestamp}_submission.csv'
     
     # Save submission file
     print(f"\nSaving submission to {submission_path}")
@@ -232,8 +236,7 @@ if __name__ == "__main__":
     model.save_model(model_path)
     
     # Create submission file
-    submission_path = '/kaggle/working/submission.csv'
-    create_submission(model, test_processed, submission_path)
+    create_submission(model, test_processed)
     
     # Print basic information about the processed datasets
     print("\nProcessed training data info:")

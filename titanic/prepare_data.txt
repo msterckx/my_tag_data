@@ -21,6 +21,6 @@ remarks:
 
 
 task 4: submission
-1) use the trained model on the test data and output the data to \kaggle\working\submission.csv
+1) use the trained model on the test data and output the data to data\yyyymmdd-hhss_submission.csv. (interpret date/time)
 - get the structure for the submission file from data\sample_submission.csv
 end file: prepare_data.py
