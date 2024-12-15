@@ -3,11 +3,9 @@ import numpy as np
 from typing import Tuple
 from catboost import CatBoostClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score
 import os
 from datetime import datetime
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 def read_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -62,47 +60,6 @@ def handle_missing_values(df: pd.DataFrame, is_train: bool = True) -> pd.DataFra
     
     return df
 
-def handle_outliers(df: pd.DataFrame, numeric_columns: list = None) -> pd.DataFrame:
-    """
-    Handle outliers in numerical columns using IQR method
-    Args:
-        df: Input dataframe
-        numeric_columns: List of numerical columns to check for outliers
-    Returns:
-        Dataframe with handled outliers
-    """
-    df = df.copy()
-    
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns
-    
-    for column in numeric_columns:
-        # Skip non-numeric columns
-        if df[column].dtype not in ['int64', 'float64']:
-            continue
-            
-        # Calculate IQR
-        Q1 = df[column].quantile(0.25)
-        Q3 = df[column].quantile(0.75)
-        IQR = Q3 - Q1
-        
-        # Define bounds
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        
-        # Cap outliers
-        outliers_low = (df[column] < lower_bound).sum()
-        outliers_high = (df[column] > upper_bound).sum()
-        
-        if outliers_low > 0 or outliers_high > 0:
-            print(f"Capping outliers in {column}:")
-            print(f"  - Lower bound ({lower_bound:.2f}): {outliers_low} outliers")
-            print(f"  - Upper bound ({upper_bound:.2f}): {outliers_high} outliers")
-            
-            df[column] = df[column].clip(lower=lower_bound, upper=upper_bound)
-    
-    return df
-
 def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Prepare features for model training
@@ -122,13 +79,13 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def train_model(train_df: pd.DataFrame) -> Tuple[CatBoostClassifier, float, pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+def train_model(train_df: pd.DataFrame) -> Tuple[CatBoostClassifier, float]:
     """
     Train CatBoost model and evaluate on validation set
     Args:
         train_df: Training dataframe
     Returns:
-        Tuple containing trained CatBoost model, validation accuracy, and split datasets
+        Tuple containing trained CatBoost model and validation accuracy
     """
     # Prepare features
     X = train_df.drop(['Transported', 'PassengerId'], axis=1, errors='ignore')
@@ -162,7 +119,7 @@ def train_model(train_df: pd.DataFrame) -> Tuple[CatBoostClassifier, float, pd.D
     val_accuracy = accuracy_score(y_val, val_predictions)
     print(f"\nValidation accuracy: {val_accuracy:.4f}")
     
-    return model, val_accuracy, X_train, y_train, X_val, y_val
+    return model, val_accuracy
 
 def create_submission(model: CatBoostClassifier, test_df: pd.DataFrame):
     """
@@ -193,87 +150,6 @@ def create_submission(model: CatBoostClassifier, test_df: pd.DataFrame):
     submission_df.to_csv(submission_path, index=False)
     print("Submission file created successfully")
 
-def evaluate_model(model: CatBoostClassifier, X_val: pd.DataFrame, y_val: pd.Series):
-    """
-    Evaluate model performance and identify areas for improvement
-    Args:
-        model: Trained CatBoost model
-        X_val: Validation features
-        y_val: Validation target
-    """
-    print("\n=== Model Evaluation ===")
-    
-    # Get predictions
-    y_pred = model.predict(X_val)
-    y_pred_proba = model.predict_proba(X_val)
-    
-    # 1. Overall Performance Metrics
-    print("\n1. Overall Performance Metrics:")
-    print(classification_report(y_val, y_pred))
-    
-    # 2. Feature Importance Analysis
-    feature_importance = pd.DataFrame({
-        'feature': X_val.columns,
-        'importance': model.feature_importances_
-    }).sort_values('importance', ascending=False)
-    
-    print("\n2. Top 10 Most Important Features:")
-    print(feature_importance.head(10))
-    
-    # 3. Error Analysis by Important Features
-    print("\n3. Error Analysis by Important Features:")
-    errors = y_val != y_pred
-    error_df = X_val.copy()
-    error_df['actual'] = y_val
-    error_df['predicted'] = y_pred
-    error_df['error'] = errors
-    
-    for feature in feature_importance['feature'].head(5):
-        if error_df[feature].dtype.name == 'category':
-            error_rates = error_df.groupby(feature)['error'].mean().sort_values(ascending=False)
-            print(f"\nError rates by {feature}:")
-            print(error_rates)
-        else:
-            correlation = np.corrcoef(error_df[feature], error_df['error'])[0,1]
-            print(f"\nCorrelation between {feature} and prediction errors: {correlation:.3f}")
-    
-    # 4. Confusion Matrix Analysis
-    conf_matrix = confusion_matrix(y_val, y_pred)
-    print("\n4. Confusion Matrix:")
-    print(conf_matrix)
-    
-    # 5. Prediction Confidence Analysis
-    confidence_scores = np.max(y_pred_proba, axis=1)
-    error_by_confidence = pd.DataFrame({
-        'confidence': confidence_scores,
-        'error': errors
-    })
-    confidence_error_rate = error_by_confidence.groupby(pd.qcut(confidence_scores, 5))['error'].mean()
-    print("\n5. Error Rates by Prediction Confidence Quintiles:")
-    print(confidence_error_rate)
-    
-    # 6. Recommendations
-    print("\n6. Recommendations for Model Improvement:")
-    
-    # Analyze feature importance for recommendations
-    low_importance_features = feature_importance[feature_importance['importance'] < 0.01]
-    if not low_importance_features.empty:
-        print("\na) Consider removing or combining these low-importance features:")
-        print(low_importance_features['feature'].tolist())
-    
-    # Analyze error patterns
-    high_error_categories = error_df.groupby(feature_importance['feature'].head(3).tolist())['error'].mean()
-    high_error_segments = high_error_categories[high_error_categories > 0.3]
-    if not high_error_segments.empty:
-        print("\nb) Focus on improving predictions for these segments:")
-        print(high_error_segments.head())
-    
-    print("\nc) General recommendations:")
-    print("- Consider feature engineering to create interaction terms between top features")
-    print("- Experiment with different model hyperparameters, especially tree depth and learning rate")
-    print("- Collect additional data for segments with high error rates")
-    print("- Consider ensemble methods combining CatBoost with other algorithms")
-
 def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame, CatBoostClassifier, float]:
     """
     Main function to prepare the data and train model
@@ -290,34 +166,22 @@ def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame, CatBoostClassifier, floa
     print("\nHandling missing values in test data...")
     test_df = handle_missing_values(test_df, is_train=False)
     
-    # Handle outliers
-    print("\nHandling outliers in training data...")
-    train_df = handle_outliers(train_df)
-    print("\nHandling outliers in test data...")
-    test_df = handle_outliers(test_df)
-    
     # Prepare features
     print("\nPreparing features...")
     train_df = prepare_features(train_df)
     test_df = prepare_features(test_df)
     
     # Train model and get validation accuracy
-    model, val_accuracy, X_train, y_train, X_val, y_val = train_model(train_df)
-    
-    # Evaluate model
-    evaluate_model(model, X_val, y_val)
+    model, val_accuracy = train_model(train_df)
     
     return train_df, test_df, model, val_accuracy
 
 if __name__ == "__main__":
-    # Create output directory if it doesn't exist
-    os.makedirs('/kaggle/working', exist_ok=True)
-    
     # Execute the data preparation and model training
     train_processed, test_processed, model, val_accuracy = prepare_data()
     
     # Save the trained model
-    model_path = '/kaggle/working/catboost_model.cbm'
+    model_path = 'catboost_model.cbm'
     print(f"\nSaving model to {model_path}")
     model.save_model(model_path)
     
