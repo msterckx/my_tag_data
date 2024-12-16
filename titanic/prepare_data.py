@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
-from typing import Tuple
-from catboost import CatBoostClassifier
-from sklearn.model_selection import train_test_split
+from typing import Tuple, Dict
+from catboost import CatBoostClassifier, Pool
+from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 import os
 from datetime import datetime
+import optuna
 
 def read_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -79,9 +80,48 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
+def objective(trial: optuna.Trial, X: pd.DataFrame, y: pd.Series, cat_features: list) -> float:
+    """
+    Optuna objective function for hyperparameter optimization
+    """
+    # Define the hyperparameters to optimize
+    params = {
+        'iterations': trial.suggest_int('iterations', 500, 2000),
+        'learning_rate': trial.suggest_loguniform('learning_rate', 0.01, 0.3),
+        'depth': trial.suggest_int('depth', 4, 10),
+        'l2_leaf_reg': trial.suggest_loguniform('l2_leaf_reg', 1e-8, 10.0),
+        'min_child_samples': trial.suggest_int('min_child_samples', 5, 100),
+        'loss_function': 'Logloss',
+        'verbose': 0
+    }
+    
+    # Initialize cross-validation
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+    scores = []
+    
+    # Perform cross-validation
+    for train_idx, val_idx in cv.split(X, y):
+        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+        
+        # Create Pool objects
+        train_pool = Pool(X_train, y_train, cat_features=cat_features)
+        val_pool = Pool(X_val, y_val, cat_features=cat_features)
+        
+        # Train model
+        model = CatBoostClassifier(**params)
+        model.fit(train_pool, eval_set=val_pool, early_stopping_rounds=50, verbose=0)
+        
+        # Evaluate
+        preds = model.predict(X_val)
+        score = accuracy_score(y_val, preds)
+        scores.append(score)
+    
+    return np.mean(scores)
+
 def train_model(train_df: pd.DataFrame) -> Tuple[CatBoostClassifier, float]:
     """
-    Train CatBoost model and evaluate on validation set
+    Train CatBoost model using Optuna for hyperparameter optimization
     Args:
         train_df: Training dataframe
     Returns:
@@ -91,35 +131,48 @@ def train_model(train_df: pd.DataFrame) -> Tuple[CatBoostClassifier, float]:
     X = train_df.drop(['Transported', 'PassengerId'], axis=1, errors='ignore')
     y = train_df['Transported']
     
-    # Split data into training and validation sets
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
-    
     # Identify categorical features
     cat_features = X.select_dtypes(include=['category']).columns.tolist()
     
-    # Initialize and train model
-    model = CatBoostClassifier(
-        iterations=1000,
-        learning_rate=0.1,
-        depth=6,
-        loss_function='Logloss',
-        verbose=100
-    )
+    # Create Optuna study for hyperparameter optimization
+    print("\nOptimizing hyperparameters with Optuna...")
+    study = optuna.create_study(direction='maximize')
+    study.optimize(lambda trial: objective(trial, X, y, cat_features), n_trials=20)
     
-    print("\nTraining CatBoost model...")
-    model.fit(
-        X_train, y_train,
-        cat_features=cat_features,
-        eval_set=(X_val, y_val),
-        plot=False
-    )
+    # Get best parameters
+    best_params = study.best_params
+    best_params['loss_function'] = 'Logloss'
+    print(f"\nBest parameters found: {best_params}")
     
-    # Evaluate model on validation set
-    val_predictions = model.predict(X_val)
-    val_accuracy = accuracy_score(y_val, val_predictions)
-    print(f"\nValidation accuracy: {val_accuracy:.4f}")
+    # Train final model with best parameters using cross-validation
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+    final_model = None
+    best_score = 0
     
-    return model, val_accuracy
+    print("\nTraining final model with cross-validation...")
+    for fold, (train_idx, val_idx) in enumerate(cv.split(X, y), 1):
+        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+        
+        # Create Pool objects
+        train_pool = Pool(X_train, y_train, cat_features=cat_features)
+        val_pool = Pool(X_val, y_val, cat_features=cat_features)
+        
+        # Train model
+        model = CatBoostClassifier(**best_params)
+        model.fit(train_pool, eval_set=val_pool, verbose=100)
+        
+        # Evaluate
+        score = accuracy_score(y_val, model.predict(X_val))
+        print(f"Fold {fold} accuracy: {score:.4f}")
+        
+        # Keep the model with the best validation score
+        if score > best_score:
+            best_score = score
+            final_model = model
+    
+    print(f"\nBest validation accuracy: {best_score:.4f}")
+    return final_model, best_score
 
 def create_submission(model: CatBoostClassifier, test_df: pd.DataFrame):
     """
@@ -131,9 +184,13 @@ def create_submission(model: CatBoostClassifier, test_df: pd.DataFrame):
     # Prepare test features
     X_test = test_df.drop(['PassengerId'], axis=1, errors='ignore')
     
+    # Create test pool
+    cat_features = X_test.select_dtypes(include=['category']).columns.tolist()
+    test_pool = Pool(X_test, cat_features=cat_features)
+    
     # Make predictions
     print("\nMaking predictions on test data...")
-    predictions = model.predict(X_test)
+    predictions = model.predict(test_pool)
     
     # Create submission dataframe
     submission_df = pd.DataFrame({
